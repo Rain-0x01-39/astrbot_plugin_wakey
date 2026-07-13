@@ -1,0 +1,21 @@
+{
+  "judge_provider": {
+    "description": "判断模型",
+    "type": "string",
+    "default": "",
+    "hint": "用于判断是否回复的小模型，0.5B 即可胜任",
+    "_special": "select_provider"
+  },
+  "context_count": {
+    "description": "上下文消息数量",
+    "type": "int",
+    "default": 10,
+    "hint": "传给判断模型的最近聊天记录条数"
+  },
+  "passive_judge": {
+    "description": "被动也过判断",
+    "type": "bool",
+    "default": true,
+    "hint": "启用后，被@的消息也会过小模型判断是否值得回复"
+  }
+}
