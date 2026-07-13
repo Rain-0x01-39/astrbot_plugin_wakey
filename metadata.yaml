@@ -1,0 +1,6 @@
+name: astrbot_plugin_wakey
+display_name: 唤醒喵
+desc: 使用小模型判断是否该主动回复或回应召唤。PASS/IGNORE 格式，0.5B 模型 CPU 可跑喵。
+version: v1.0.0
+author: 雨零一和雨蓝紫
+repo: https://github.com/Rain-0x01-39/astrbot_plugin_wakey
