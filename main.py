@@ -50,7 +50,7 @@ class WakeyPlugin(star.Star):
 
     # ==================== judge ====================
 
-    _ACTIVE_SYSTEM = """你是一个群聊助手。根据聊天上下文判断是否应该回复。
+    _ACTIVE_SYSTEM = """你是一个群聊助手。根据聊天上下文判断是否应该回应。
 
 以下情况应回复(PASS)：
 - 消息提到你的名字或昵称
@@ -62,7 +62,9 @@ class WakeyPlugin(star.Star):
 - 无意义内容（纯表情、单字、刷屏）
 - 与当前话题无关的闲聊，且没有@你
 - 看起来像命令或误触发的机器人指令
-- 群友之间互相对话，与你无关"""
+- 群友之间互相对话，与你无关
+
+重要：默认保守策略——不确定时输出 IGNORE。宁可沉默也不要冒昧插话。"""
 
     _PASSIVE_SYSTEM = """你是一个群聊助手。有人正在召唤你(@你或叫你名字)。判断是否应该回应。
 
@@ -73,18 +75,12 @@ class WakeyPlugin(star.Star):
 以下情况应忽略(IGNORE)：
 - 纯@无实质内容
 - 刷屏召唤
-- 无意义表情包或单字"""
+- 无意义表情包或单字
+
+重要：默认保守策略——不确定时输出 IGNORE。宁可沉默也不要冒昧插话。"""
 
     async def _call_judge(self, system: str, user: str) -> tuple[bool, str]:
-        """Call the small judge model and parse PASS/IGNORE verdict.
-
-        Args:
-            system: System prompt for the judge.
-            user: User prompt with chat context and message.
-
-        Returns:
-            (should_reply, reason) tuple.
-        """
+        """Call the small judge model and parse PASS/IGNORE verdict."""
         provider = self.context.get_provider_by_id(self.judge_provider)
         if not provider:
             return False, "judge_provider不可用"
@@ -94,30 +90,61 @@ class WakeyPlugin(star.Star):
             f"---\n"
             f"{user}\n"
             f"---\n"
-            f"输出你的判断（必须严格按以下格式，不要输出其他内容）：\n"
-            f"第一行：原因\n"
-            f"第二行：PASS 或 IGNORE"
+            f"按以下格式输出：\n"
+            f"第一行：判断理由\n"
+            f"第二行：IGNORE 或 PASS"
         )
 
         for attempt in range(2):
             try:
                 resp = await provider.text_chat(prompt=full_prompt, contexts=[])
                 text = resp.completion_text.strip()
-                lines = [line.strip() for line in text.split("\n") if line.strip()]
-                if not lines:
-                    continue
-                verdict = lines[-1].upper().rstrip("。.!！,.，")
-                reason = lines[0]
-                if verdict.startswith("PASS"):
-                    return True, reason
-                if verdict.startswith("IGNOR"):
-                    return False, reason
-                logger.debug(
-                    f"[wakey] 非预期判断输出 (尝试{attempt + 1}): {text[:200]}"
+                logger.debug(f"[wakey] judge原始输出 (尝试{attempt + 1}):\n{text}")
+                ok, reason = self._parse_verdict(text)
+                if ok is not None:
+                    return ok, reason
+                logger.info(
+                    f"[wakey] 非预期判断输出 (尝试{attempt + 1}): {text[:300]}"
                 )
             except Exception as e:
                 logger.error(f"[wakey] judge异常 (尝试{attempt + 1}): {e}")
         return False, "解析失败"
+
+    @staticmethod
+    def _parse_verdict(text: str) -> tuple[bool | None, str]:
+        """Parse judge output. Returns (ok, reason) or (None, "") if unparseable."""
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        if not lines:
+            return None, ""
+
+        reason = lines[0].rstrip("。.!！,.，")
+
+        def _matches_verdict(line: str) -> bool | None:
+            """Check if a line is a verdict. Returns True=PASS, False=IGNORE, None=neither."""
+            clean = line.upper().rstrip("。.!！,.，")
+            if clean in ("PASS", "PASS。"):
+                return True
+            if clean in ("IGNORE", "IGNORE。", "IGNOR", "IGNOR。"):
+                return False
+            if clean.startswith("PASS") and len(clean) <= 6:
+                return True
+            if clean.startswith("IGNOR") and len(clean) <= 8:
+                return False
+            return None
+
+        for line in reversed(lines):
+            result = _matches_verdict(line)
+            if result is not None:
+                return result, reason
+
+        for line in reversed(lines):
+            clean = line.upper()
+            if "PASS" in clean and "IGNOR" not in clean:
+                return True, reason
+            if "IGNOR" in clean and "PASS" not in clean:
+                return False, reason
+
+        return None, ""
 
     async def _judge_active(self, event: AstrMessageEvent) -> tuple[bool, str]:
         ctx = self._get_context(
