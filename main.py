@@ -13,6 +13,7 @@ class WakeyPlugin(star.Star):
         self.judge_provider = config.get("judge_provider", "")
         self.context_count = config.get("context_count", 10)
         self.passive_judge = config.get("passive_judge", True)
+        self.group_whitelist = config.get("group_whitelist", [])
         self._buffer: dict[str, deque] = {}
         self._buffer_max = max(self.context_count * 4, 40)
         logger.info(
@@ -145,6 +146,9 @@ class WakeyPlugin(star.Star):
         if event.get_sender_id() == event.get_self_id():
             return
         if not self.judge_provider:
+            return
+
+        if self.group_whitelist and event.unified_msg_origin not in self.group_whitelist:
             return
 
         self._record(event, is_bot=False)

@@ -17,5 +17,11 @@
     "type": "bool",
     "default": true,
     "hint": "启用后，被@的消息也会过小模型判断是否值得回复"
+  },
+  "group_whitelist": {
+    "description": "群聊白名单 (UMO)",
+    "type": "list",
+    "default": [],
+    "hint": "仅在这些群聊中生效，留空则所有群生效。使用 /sid 命令获取"
   }
 }
