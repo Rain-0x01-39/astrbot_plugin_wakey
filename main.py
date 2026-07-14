@@ -140,7 +140,7 @@ class WakeyPlugin(star.Star):
 
     # ==================== hooks ====================
 
-    @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE, priority=114514)
+    @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE, priority=-114514)
     async def on_group_message(self, event: AstrMessageEvent):
         if event.get_sender_id() == event.get_self_id():
             return
