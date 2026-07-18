@@ -1,13 +1,14 @@
 from collections import deque
 
-import astrbot.api.star as star
-from astrbot.api import logger
+from astrbot.api import AstrBotConfig, logger
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.message_components import Plain
+from astrbot.api.provider import Provider
+from astrbot.api.star import Context, Star
 
 
-class WakeyPlugin(star.Star):
-    def __init__(self, context: star.Context, config):
+class WakeyPlugin(Star):
+    def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.config = config
         self.judge_provider = config.get("judge_provider", "")
@@ -82,8 +83,8 @@ class WakeyPlugin(star.Star):
     async def _call_judge(self, system: str, user: str) -> tuple[bool, str]:
         """Call the small judge model and parse PASS/IGNORE verdict."""
         provider = self.context.get_provider_by_id(self.judge_provider)
-        if not provider:
-            return False, "judge_provider不可用"
+        if not isinstance(provider, Provider):
+            return False, "judge_provider 未配置"
 
         full_prompt = (
             f"{system}\n\n"
@@ -103,9 +104,7 @@ class WakeyPlugin(star.Star):
                 ok, reason = self._parse_verdict(text)
                 if ok is not None:
                     return ok, reason
-                logger.info(
-                    f"[wakey] 非预期判断输出 (尝试{attempt + 1}): {text[:300]}"
-                )
+                logger.info(f"[wakey] 非预期判断输出 (尝试{attempt + 1}): {text[:300]}")
             except Exception as e:
                 logger.error(f"[wakey] judge异常 (尝试{attempt + 1}): {e}")
         return False, "解析失败"
@@ -175,7 +174,10 @@ class WakeyPlugin(star.Star):
         if not self.judge_provider:
             return
 
-        if self.group_whitelist and event.unified_msg_origin not in self.group_whitelist:
+        if (
+            self.group_whitelist
+            and event.unified_msg_origin not in self.group_whitelist
+        ):
             return
 
         self._record(event, is_bot=False)
@@ -252,7 +254,9 @@ class WakeyPlugin(star.Star):
             yield event.plain_result("未配置 judge_provider")
             return
 
-        ctx = self._get_context(event.unified_msg_origin, exclude_last=event.message_str)
+        ctx = self._get_context(
+            event.unified_msg_origin, exclude_last=event.message_str
+        )
         if message.startswith("@"):
             system = self._PASSIVE_SYSTEM
             user = f"最近聊天记录：\n{ctx}\n\n有人召唤你 (来自 测试用户): {message}"
