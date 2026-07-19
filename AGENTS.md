@@ -1,6 +1,6 @@
-# wakey — 智能体指令
+# wakey
 
-AstrBot 插件：用小模型 (0.5B+) 做 PASS/IGNORE 二值判断，控制主 LLM 是否回复。
+AstrBot 插件：用小模型做 PASS/IGNORE 二值判断，控制主 LLM 是否回复。小模型（0.5B~1.5B）格式稳定性较差，wakey已有一定兜底能力。
 
 ## 架构
 
@@ -28,9 +28,10 @@ PASS
 
 解析逻辑（在 `_call_judge` 中）：
 1. 按换行 split，取最后一行非空行作为结论
-2. `verdict.upper().rstrip("。.!！,.，")` 然后 `startswith("PASS")` 或 `startswith("IGNOR")` — `startswith` 容忍额外文本
-3. 第一行用作人类可读的原因（记录日志）
-4. 格式不匹配时重试两次
+2. 清理标点和可能的前缀（如 "第二行："）
+3. 使用 `startswith("PASS")` 或 `startswith("IGNOR")` 匹配
+4. 第一行用作人类可读的原因（记录日志）
+5. 格式不匹配时重试
 
 ## 配置
 
