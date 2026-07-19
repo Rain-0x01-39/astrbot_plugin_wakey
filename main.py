@@ -5,6 +5,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.message_components import Plain
 from astrbot.api.provider import Provider
 from astrbot.api.star import Context, Star
+from astrbot.core.star.filter.command import GreedyStr
 
 
 class WakeyPlugin(Star):
@@ -112,7 +113,9 @@ class WakeyPlugin(Star):
     @staticmethod
     def _parse_verdict(text: str) -> tuple[bool | None, str]:
         """Parse judge output. Returns (ok, reason) or (None, "") if unparseable."""
-        lines = [line.strip() for line in text.split("\n") if line.strip(".。,，!！:：- ")]
+        lines = [
+            line.strip() for line in text.split("\n") if line.strip(".。,，!！:：- ")
+        ]
         if not lines:
             return None, ""
 
@@ -222,7 +225,12 @@ class WakeyPlugin(Star):
 
     # ==================== commands ====================
 
-    @filter.command("wakey")
+    @filter.command_group("wakey")
+    def wakey():
+        """wakey 插件控制"""
+        pass
+
+    @wakey.command("status")
     async def cmd_status(self, event: AstrMessageEvent):
         """查看 wakey 状态"""
         umo = event.unified_msg_origin
@@ -235,14 +243,12 @@ class WakeyPlugin(Star):
             f"当前会话缓存: {buf_size}条"
         )
 
-    @filter.command("wakey_test")
-    async def cmd_test(self, event: AstrMessageEvent):
-        """测试 judge：/wakey_test <消息内容>"""
-        msg = event.message_str.strip()
-        parts = msg.split(None, 1)
-        message = parts[1] if len(parts) > 1 else ""
+    @wakey.command("test")
+    async def cmd_test(self, event: AstrMessageEvent, message: GreedyStr):
+        """测试 judge 判断"""
+        message = (message or "").strip()
         if not message:
-            yield event.plain_result("用法：/wakey_test <消息内容>")
+            yield event.plain_result("用法：/wakey test <消息内容>")
             return
         if not self.judge_provider:
             yield event.plain_result("未配置 judge_provider")
@@ -264,7 +270,7 @@ class WakeyPlugin(Star):
         verdict = "PASS" if ok else "IGNORE"
         yield event.plain_result(f"[{mode}] {verdict}\n原因: {reason}")
 
-    @filter.command("wakey_reset")
+    @wakey.command("reset")
     async def cmd_reset(self, event: AstrMessageEvent):
         """重置当前会话的上下文缓存"""
         self._buffer.pop(event.unified_msg_origin, None)
