@@ -112,38 +112,32 @@ class WakeyPlugin(Star):
     @staticmethod
     def _parse_verdict(text: str) -> tuple[bool | None, str]:
         """Parse judge output. Returns (ok, reason) or (None, "") if unparseable."""
-        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        lines = [line.strip() for line in text.split("\n") if line.strip(".。,，!！:：- ")]
         if not lines:
             return None, ""
 
-        reason = lines[0].rstrip("。.!！,.，")
+        reason = lines[0].rstrip(".。,，!！:：- ")
+        text_upper = text.upper()
 
-        def _matches_verdict(line: str) -> bool | None:
-            """Check if a line is a verdict. Returns True=PASS, False=IGNORE, None=neither."""
-            clean = line.upper().rstrip("。.!！,.，")
-            if clean in ("PASS", "PASS。"):
-                return True
-            if clean in ("IGNORE", "IGNORE。", "IGNOR", "IGNOR。"):
-                return False
-            if clean.startswith("PASS") and len(clean) <= 6:
-                return True
-            if clean.startswith("IGNOR") and len(clean) <= 8:
-                return False
-            return None
+        # 查找最后一个 PASS 和 IGNOR 的位置
+        last_pass = text_upper.rfind("PASS")
+        last_ignor = text_upper.rfind("IGNOR")
 
-        for line in reversed(lines):
-            result = _matches_verdict(line)
-            if result is not None:
-                return result, reason
+        # 都没找到
+        if last_pass == -1 and last_ignor == -1:
+            return None, ""
 
-        for line in reversed(lines):
-            clean = line.upper()
-            if "PASS" in clean and "IGNOR" not in clean:
-                return True, reason
-            if "IGNOR" in clean and "PASS" not in clean:
-                return False, reason
+        # 只找到一个
+        if last_ignor == -1:
+            return True, reason
+        if last_pass == -1:
+            return False, reason
 
-        return None, ""
+        # 都找到，比较位置（最后一个优先）
+        if last_pass > last_ignor:
+            return True, reason
+        else:
+            return False, reason
 
     async def _judge_active(self, event: AstrMessageEvent) -> tuple[bool, str]:
         ctx = self._get_context(
