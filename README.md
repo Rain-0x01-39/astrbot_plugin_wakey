@@ -66,4 +66,4 @@ wakey 直接让模型输出 **PASS 或 IGNORE**，更简单的判断方式。
 
 ## 许可证
 
-MIT
+AGPL-3.0
